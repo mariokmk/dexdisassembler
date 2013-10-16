@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dex.net", "dex.net\dex.net\dex.net.csproj", "{2B7D42B6-F491-4294-A052-8A30B16EFB9A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dexdisassembler", "dexdissasembler\dexdissasembler.csproj", "{ECBCE759-E50E-4956-9FEA-8F2C67A07E73}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dexdisassembler", "dexdisassembler\dexdisassembler.csproj", "{ECBCE759-E50E-4956-9FEA-8F2C67A07E73}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

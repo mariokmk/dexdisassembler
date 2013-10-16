@@ -1,21 +1,21 @@
-dedex
-=====
+dexdisassembler
+===============
 
-Is a command line tool for disassembling Android DEX files.
+Is a GTK tool for disassembling Android DEX files.
 
 Usage
 -----
 
-Type "mono dedex.exe -d all <path to a DEX or APK file>". This command will disassemble the supplied DEX file and write the output to stdout. dedex will use the default language to display the output. See the help file for other supported languages.
-
-Use the -c to limit the classes displayed. For example, if you want to see all classes with Installer in the name use 'mono dedex.exe -c "*Installer*" <DEX>".
+Launch the app and open a DEX or APK file using the File->Open menu. The list of packages in the DEX/APK will display in the classes lists. Selecting a class or method will render the details of the selected item using the language shown in the 'Language' dropdown.
 
 See the dex.net project for a description of the output languages.
+
+The search field allows to filter the packages, classes or methods. If a method matches the criterium its class and package will be displayed as well to allow for navigation.
 
 Development
 -----------
 
-dedex uses the dex.net library which is configured as a git submodule. You must initialize the submodules before compiling dedex.
+dexdisassembler uses the dex.net library which is configured as a git submodule. You must initialize the submodules before compiling dexdisassembler.
 
 License
 -------
