@@ -7,8 +7,9 @@ using System.Text;
 using dex.net;
 using ICSharpCode.SharpZipLib.Zip;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
-public partial class MainWindow: Gtk.Window
+public partial class MainWindow : Gtk.Window
 {	
 	private Dex _dex;
 	private Dictionary<Class,Gtk.NodeStore> _classCache = new Dictionary<Class,Gtk.NodeStore>();
@@ -17,6 +18,7 @@ public partial class MainWindow: Gtk.Window
 	private Gtk.TreeStore _treeStore;
 	private IDexWriter _writer;
 	private WritersFactory _factory = new WritersFactory ();
+	private List<CodeHighlight> _codeHighlight = new List<CodeHighlight> ();
 
 	private ClassDisplayOptions _classDisplayOptions = ClassDisplayOptions.ClassAnnotations |
 		ClassDisplayOptions.ClassName |
@@ -28,10 +30,9 @@ public partial class MainWindow: Gtk.Window
 	{
 		Build ();
 
-//		Gdk.Pixbuf = iconbuf;
-//		this.Icon = new Gtk.Image(Assembly.GetExecutingAssembly(),  "icon.png").Pixbuf;
-			//LoadFromResource FromResource ("icon.png").Pixbuf;
-
+		//Gdk.Pixbuf = iconbuf;
+		//LoadFromResource FromResource ("icon.png").Pixbuf;
+		this.Icon = new Gtk.Image(Assembly.GetExecutingAssembly(),  "icon.png").Pixbuf;
 
 		var textRenderer = new Gtk.CellRendererText ();
 		var dataColumn = new Gtk.TreeViewColumn ("Data", textRenderer, "text", 0);
@@ -219,11 +220,18 @@ public partial class MainWindow: Gtk.Window
 			TreeIter parent;
 			treeviewclasses.Model.IterParent (out parent, iter);
 
-			_writer.WriteOutMethod ((treeviewclasses.Model.GetValue (parent, 0) as Class), dexMethod, writer, new Indentation(), true);
+			_writer.WriteOutMethod ((treeviewclasses.Model.GetValue (parent, 0) as Class), dexMethod, writer, new Indentation(0, 4, ' '), true);
 		}
 		
 		textviewCode.Buffer.Clear();
 		textviewCode.Buffer.Text = writer.ToString ();
+
+		// Highlight Code
+		foreach (var highlight in _codeHighlight) {
+			foreach (Match match in highlight.Expression.Matches(textviewCode.Buffer.Text)) {
+				textviewCode.Buffer.ApplyTag (highlight.TagName, textviewCode.Buffer.GetIterAtOffset(match.Groups[1].Index), textviewCode.Buffer.GetIterAtOffset(match.Groups[1].Index+match.Groups[1].Length));
+			}
+		}
 	}
 
 	private void PopulateClasses() 
@@ -315,6 +323,13 @@ public partial class MainWindow: Gtk.Window
 
 		if (_dex != null) {
 			_writer.dex = _dex;
+
+			textviewCode.Buffer.TagTable.Foreach (tag => textviewCode.Buffer.TagTable.Remove (tag));
+			_codeHighlight.Clear ();
+			foreach (var highlight in _writer.GetCodeHightlight()) {
+				_codeHighlight.Add (new CodeHighlight (highlight, textviewCode));
+			}
+
 			OnSelectionChanged(null, null);
 		}
 	}
@@ -326,6 +341,24 @@ public partial class MainWindow: Gtk.Window
 		internal Package (string name)
 		{
 			Name = name;
+		}
+	}
+
+	private class CodeHighlight
+	{
+		private static uint Counter;
+
+		internal Regex Expression;
+		internal string TagName;
+
+		internal CodeHighlight(HightlightInfo info, TextView view)
+		{
+			Expression = info.Expression;
+			TagName = Counter++.ToString();
+
+			var tag = new TextTag(TagName);
+			tag.Foreground = string.Format("#{0}{1}{2}", info.Color.Red.ToString("X2"), info.Color.Green.ToString("X2"), info.Color.Blue.ToString("X2"));
+			view.Buffer.TagTable.Add(tag);
 		}
 	}
 }
