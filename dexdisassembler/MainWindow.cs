@@ -104,6 +104,10 @@ public partial class MainWindow : Gtk.Window
 		_dex = new Dex(new FileStream (dexFile, FileMode.Open));
 		PopulateClasses();
 
+		if (_codeHighlight.Count == 0) {
+			LanguageChanged (null,null);
+		}
+
 		_writer.dex = _dex;
 
 		treeviewclasses.GrabFocus();
