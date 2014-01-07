@@ -8,6 +8,7 @@ using dex.net;
 using ICSharpCode.SharpZipLib.Zip;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 public partial class MainWindow : Gtk.Window
 {	
@@ -19,6 +20,11 @@ public partial class MainWindow : Gtk.Window
 	private IDexWriter _writer;
 	private WritersFactory _factory = new WritersFactory ();
 	private List<CodeHighlight> _codeHighlight = new List<CodeHighlight> ();
+	private uint _statusBarMessageContextId = 0;
+	private Gdk.Window _overlay;
+
+	private const string FONT_NAME = "monospace";
+	private int _fontSize = 12;
 
 	private ClassDisplayOptions _classDisplayOptions = ClassDisplayOptions.ClassAnnotations |
 		ClassDisplayOptions.ClassName |
@@ -30,8 +36,22 @@ public partial class MainWindow : Gtk.Window
 	{
 		Build ();
 
-		//Gdk.Pixbuf = iconbuf;
-		//LoadFromResource FromResource ("icon.png").Pixbuf;
+		// Create the overlay window to block cursor input
+		// when needed
+		int width, height;
+		this.GdkWindow.GetSize(out width, out height);
+		
+		var attr = new Gdk.WindowAttr();
+		attr.Height = height;
+		attr.Width = width;
+		attr.Wclass = Gdk.WindowClass.InputOnly;
+		attr.WindowType = Gdk.WindowType.Child;
+		
+		var attrType = Gdk.WindowAttributesType.Cursor | Gdk.WindowAttributesType.TypeHint | Gdk.WindowAttributesType.Wmclass | Gdk.WindowAttributesType.Visual | Gdk.WindowAttributesType.X | Gdk.WindowAttributesType.Y;
+		
+		_overlay = new Gdk.Window(this.GdkWindow, attr, attrType);
+		_overlay.Cursor = new Gdk.Cursor(Gdk.CursorType.Watch);
+
 		this.Icon = new Gtk.Image(Assembly.GetExecutingAssembly(),  "icon.png").Pixbuf;
 
 		var textRenderer = new Gtk.CellRendererText ();
@@ -41,12 +61,28 @@ public partial class MainWindow : Gtk.Window
 		treeviewclasses.AppendColumn (dataColumn);
 		treeviewclasses.Selection.Changed += OnSelectionChanged;
 
-		textviewCode.ModifyFont(Pango.FontDescription.FromString("monospace 12"));
+		updateFont();
 
 		PopulateLanguages ();
 		comboboxLanguage.Active = 0;
 
-		entrySearch.Changed += OnEntrySearchEditingDone;
+		_statusBarMessageContextId = statusbar.GetContextId("Path to Open File");
+	}
+
+	protected override void OnSizeAllocated (Gdk.Rectangle allocation)
+	{
+		base.OnSizeAllocated(allocation);
+
+		// Maintains the size of the overlay window matching the main window
+		if (_overlay != null) {
+			_overlay.Resize (allocation.Width, allocation.Height);
+		}
+	}
+
+	private void updateFont (int increment=0)
+	{
+		_fontSize += increment;
+		textviewCode.ModifyFont(Pango.FontDescription.FromString(string.Format("{0} {1}", FONT_NAME, _fontSize)));
 	}
 
 	void PopulateLanguages ()
@@ -73,46 +109,61 @@ public partial class MainWindow : Gtk.Window
 		a.RetVal = true;
 	}
 
+	private void SetWaitCursor (bool toWait=false)
+	{
+		if (toWait) {
+			_overlay.Show();
+		} else {
+			_overlay.Hide();
+		}
+	}
+
 	internal void OpenFile(string filename)
 	{
 		string dexFile = filename;
 		_tempFile = null;
 
-		if (System.IO.Path.GetExtension(dexFile).EndsWith("apk")) {
-			var apkFile = new FileInfo (dexFile);
-			if (apkFile.Exists) {
-				var zip = new ZipFile (dexFile);
-				var entry = zip.GetEntry ("classes.dex");
+		SetWaitCursor(true);
 
-				if (entry != null) {
-					var zipStream = zip.GetInputStream (entry);
-					var tempFileName = System.IO.Path.GetTempFileName ();
+		Task.Factory.StartNew(() => {
+			if (System.IO.Path.GetExtension(dexFile).EndsWith("apk")) {
+				var apkFile = new FileInfo (dexFile);
+				if (apkFile.Exists) {
+					var zip = new ZipFile (dexFile);
+					var entry = zip.GetEntry ("classes.dex");
 
-					var buffer = new byte[4096];
-					using (var writer = File.Create(tempFileName)) {
-						int bytesRead;
-						while ((bytesRead = zipStream.Read(buffer, 0, 4096)) > 0) {
-							writer.Write (buffer, 0, bytesRead);
+					if (entry != null) {
+						var zipStream = zip.GetInputStream (entry);
+						var tempFileName = System.IO.Path.GetTempFileName ();
+
+						var buffer = new byte[4096];
+						using (var writer = File.Create(tempFileName)) {
+							int bytesRead;
+							while ((bytesRead = zipStream.Read(buffer, 0, 4096)) > 0) {
+								writer.Write (buffer, 0, bytesRead);
+							}
 						}
+						dexFile = tempFileName;
+						_tempFile = dexFile;
 					}
-					dexFile = tempFileName;
-					_tempFile = dexFile;
 				}
 			}
-		}
 
-		_dex = new Dex(new FileStream (dexFile, FileMode.Open));
-		PopulateClasses();
+			_dex = new Dex(new FileStream (dexFile, FileMode.Open));
+			PopulateClasses();
 
-		if (_codeHighlight.Count == 0) {
-			LanguageChanged (null,null);
-		}
+			if (_codeHighlight.Count == 0) {
+				LanguageChanged (null,null);
+			}
 
-		_writer.dex = _dex;
+			_writer.dex = _dex;
 
-		treeviewclasses.GrabFocus();
+			treeviewclasses.GrabFocus();
 
-		labelStatus.Text = filename;
+			statusbar.Push(_statusBarMessageContextId, filename);
+
+			SetWaitCursor(false);
+		});
 	}
 
 	protected void OnOpenActionActivated (object sender, EventArgs e)
@@ -142,7 +193,7 @@ public partial class MainWindow : Gtk.Window
 		AboutDialog about = new AboutDialog();
 		
 		about.ProgramName = "Dex Disassembler";
-		about.Version = "0.5.0";
+		about.Version = "1.0.0";
 		about.Authors = new[]{"Mario Kosmiskas"};
 		
 		about.Run();
@@ -182,6 +233,7 @@ public partial class MainWindow : Gtk.Window
 		_classCache.Clear();
 		textviewCode.Buffer.Clear ();
 		treeviewclasses.Model = null;
+		statusbar.Pop(_statusBarMessageContextId);
 	}
 
 	void RenderClassOrMethodName (TreeViewColumn tree_column, CellRenderer cell, TreeModel tree_model, TreeIter iter)
@@ -282,45 +334,6 @@ public partial class MainWindow : Gtk.Window
 		treeviewclasses.Model = _filter;
 	}
 
-	protected void OnEntrySearchEditingDone (object sender, EventArgs e)
-	{
-		if (_dex == null)
-			return;
-
-		TreeIter currentClass = new TreeIter();
-		TreeIter currentPackage = new TreeIter();
-
-		_treeStore.Foreach ((model, path, iter) => {
-			var value = model.GetValue (iter, 0);
-
-			if (value is Package) {
-				currentPackage = iter;
-				model.SetValue (iter, 1, false);
-			} else if (value is Class) {
-				currentClass = iter;
-
-				var isVisible = (value as Class).Name.ToLower().IndexOf (entrySearch.Text.ToLower()) > -1;
-				model.SetValue (iter, 1, isVisible);
-				
-				// make sure the package is visible otherwise Gtk won't show this node
-				if (isVisible) {
-					model.SetValue (currentPackage, 1, true);
-				}
-			} else if (value is Method) {
-				var isVisible = (value as Method).Name.ToLower().IndexOf (entrySearch.Text.ToLower()) > -1;
-				model.SetValue (iter, 1, isVisible);
-
-				// make sure the class & paclage are visible otherwise Gtk won't show this node
-				if (isVisible) {
-					model.SetValue (currentClass, 1, true);
-					model.SetValue (currentPackage, 1, true);
-				}
-			}
-
-			return false;
-		});
-	}
-
 	protected void LanguageChanged (object sender, EventArgs e)
 	{
 		_writer = _factory.GetWriter (comboboxLanguage.ActiveText);
@@ -335,6 +348,67 @@ public partial class MainWindow : Gtk.Window
 			}
 
 			OnSelectionChanged(null, null);
+		}
+	}
+
+	protected void OnButtonSearchClicked (object sender, EventArgs e)
+	{
+		if (_dex == null) 
+			return;
+
+		SetWaitCursor(true);
+
+		treeviewclasses.Model = null;
+
+		Task.Factory.StartNew(() => {
+			TreeIter currentClass = new TreeIter ();
+			TreeIter currentPackage = new TreeIter ();
+			
+			_treeStore.Foreach ((model, path, iter) => {
+				var value = model.GetValue (iter, 0);
+				
+				if (value is Package) {
+					currentPackage = iter;
+					model.SetValue (iter, 1, false);
+				} else if (value is Class) {
+					currentClass = iter;
+					
+					var isVisible = (value as Class).Name.ToLower ().IndexOf (entrySearch.Text.ToLower ()) > -1;
+					model.SetValue (iter, 1, isVisible);
+					
+					// make sure the package is visible otherwise Gtk won't show this node
+					if (isVisible) {
+						model.SetValue (currentPackage, 1, true);
+					}
+				} else if (value is Method) {
+					var isVisible = (value as Method).Name.ToLower ().IndexOf (entrySearch.Text.ToLower ()) > -1;
+					model.SetValue (iter, 1, isVisible);
+					
+					// make sure the class & paclage are visible otherwise Gtk won't show this node
+					if (isVisible) {
+						model.SetValue (currentClass, 1, true);
+						model.SetValue (currentPackage, 1, true);
+					}
+				}
+				
+				return false;
+			});
+			
+			SetWaitCursor(false);
+
+			treeviewclasses.Model = _filter;
+		});
+	}
+
+	protected void OnZoomIn (object sender, EventArgs e)
+	{
+		updateFont(1);
+	}
+
+	protected void OnZoomOut (object sender, EventArgs e)
+	{
+		if (_fontSize > 6) {
+			updateFont (-1);
 		}
 	}
 

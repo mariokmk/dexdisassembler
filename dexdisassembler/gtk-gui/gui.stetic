@@ -15,10 +15,11 @@
         <property name="Label" translatable="yes">_File</property>
         <property name="ShortLabel" translatable="yes">_File</property>
       </action>
-      <action id="OpenAction">
+      <action id="openAction">
         <property name="Type">Action</property>
         <property name="Label" translatable="yes">_Open</property>
         <property name="ShortLabel" translatable="yes">_Open</property>
+        <property name="StockId">gtk-open</property>
         <signal name="Activated" handler="OnOpenActionActivated" />
       </action>
       <action id="CloseAction">
@@ -27,10 +28,11 @@
         <property name="ShortLabel" translatable="yes">_Close</property>
         <signal name="Activated" handler="OnCloseActionActivated" />
       </action>
-      <action id="ExitAction">
+      <action id="quitAction">
         <property name="Type">Action</property>
         <property name="Label" translatable="yes">_Exit</property>
         <property name="ShortLabel" translatable="yes">_Exit</property>
+        <property name="StockId">gtk-quit</property>
         <signal name="Activated" handler="OnExitActionActivated" />
       </action>
       <action id="HelpAction">
@@ -38,11 +40,36 @@
         <property name="Label" translatable="yes">_Help</property>
         <property name="ShortLabel" translatable="yes">_Help</property>
       </action>
-      <action id="AboutAction">
+      <action id="dialogInfoAction">
         <property name="Type">Action</property>
         <property name="Label" translatable="yes">_About</property>
         <property name="ShortLabel" translatable="yes">_About</property>
+        <property name="StockId">gtk-dialog-info</property>
         <signal name="Activated" handler="OnAboutActionActivated" />
+      </action>
+      <action id="ViewAction">
+        <property name="Type">Action</property>
+        <property name="Label" translatable="yes">View</property>
+        <property name="ShortLabel" translatable="yes">View</property>
+      </action>
+      <action id="FontAction">
+        <property name="Type">Action</property>
+        <property name="Label" translatable="yes">Font</property>
+        <property name="ShortLabel" translatable="yes">Font</property>
+      </action>
+      <action id="ZoomInAction">
+        <property name="Type">Action</property>
+        <property name="Accelerator">&lt;Primary&gt;&lt;Mod2&gt;KP_Add</property>
+        <property name="Label" translatable="yes">Zoom _In</property>
+        <property name="ShortLabel" translatable="yes">Zoom _In</property>
+        <signal name="Activated" handler="OnZoomIn" />
+      </action>
+      <action id="ZoomOutAction">
+        <property name="Type">Action</property>
+        <property name="Accelerator">&lt;Primary&gt;&lt;Mod2&gt;KP_Subtract</property>
+        <property name="Label" translatable="yes">Zoom _Out</property>
+        <property name="ShortLabel" translatable="yes">Zoom _Out</property>
+        <signal name="Activated" handler="OnZoomOut" />
       </action>
     </action-group>
     <property name="MemberName" />
@@ -58,12 +85,16 @@
             <property name="MemberName" />
             <node name="menubar1" type="Menubar">
               <node type="Menu" action="FileAction">
-                <node type="Menuitem" action="OpenAction" />
+                <node type="Menuitem" action="openAction" />
                 <node type="Menuitem" action="CloseAction" />
-                <node type="Menuitem" action="ExitAction" />
+                <node type="Menuitem" action="quitAction" />
+              </node>
+              <node type="Menu" action="ViewAction">
+                <node type="Menuitem" action="ZoomInAction" />
+                <node type="Menuitem" action="ZoomOutAction" />
               </node>
               <node type="Menu" action="HelpAction">
-                <node type="Menuitem" action="AboutAction" />
+                <node type="Menuitem" action="dialogInfoAction" />
               </node>
             </node>
           </widget>
@@ -78,7 +109,7 @@
           <widget class="Gtk.HPaned" id="hpaned1">
             <property name="MemberName" />
             <property name="CanFocus">True</property>
-            <property name="Position">145</property>
+            <property name="Position">190</property>
             <child>
               <widget class="Gtk.VBox" id="vbox3">
                 <property name="MemberName" />
@@ -88,12 +119,31 @@
                     <property name="MemberName" />
                     <property name="Spacing">6</property>
                     <child>
-                      <widget class="Gtk.Label" id="label1">
+                      <widget class="Gtk.Entry" id="entrySearch">
                         <property name="MemberName" />
-                        <property name="LabelProp" translatable="yes">Search:</property>
+                        <property name="CanFocus">True</property>
+                        <property name="IsEditable">True</property>
+                        <property name="ActivatesDefault">True</property>
+                        <property name="InvisibleChar">●</property>
                       </widget>
                       <packing>
                         <property name="Position">0</property>
+                        <property name="AutoSize">True</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <widget class="Gtk.Button" id="buttonSearch">
+                        <property name="MemberName" />
+                        <property name="CanDefault">True</property>
+                        <property name="HasDefault">True</property>
+                        <property name="CanFocus">True</property>
+                        <property name="Type">TextOnly</property>
+                        <property name="Label" translatable="yes">Search</property>
+                        <property name="UseUnderline">True</property>
+                        <signal name="Clicked" handler="OnButtonSearchClicked" />
+                      </widget>
+                      <packing>
+                        <property name="Position">1</property>
                         <property name="AutoSize">True</property>
                         <property name="Expand">False</property>
                         <property name="Fill">False</property>
@@ -101,16 +151,7 @@
                       </packing>
                     </child>
                     <child>
-                      <widget class="Gtk.Entry" id="entrySearch">
-                        <property name="MemberName" />
-                        <property name="CanFocus">True</property>
-                        <property name="IsEditable">True</property>
-                        <property name="InvisibleChar">●</property>
-                      </widget>
-                      <packing>
-                        <property name="Position">1</property>
-                        <property name="AutoSize">True</property>
-                      </packing>
+                      <placeholder />
                     </child>
                   </widget>
                   <packing>
@@ -149,7 +190,7 @@
                       </widget>
                     </child>
                     <child>
-                      <widget class="Gtk.Label" id="GtkLabel3">
+                      <widget class="Gtk.Label" id="GtkLabel4">
                         <property name="MemberName" />
                         <property name="LabelProp" translatable="yes">&lt;b&gt;Classes&lt;/b&gt;</property>
                         <property name="UseMarkup">True</property>
@@ -259,15 +300,7 @@
             <property name="Spacing">6</property>
             <property name="HasResizeGrip">False</property>
             <child>
-              <widget class="Gtk.Label" id="labelStatus">
-                <property name="MemberName" />
-              </widget>
-              <packing>
-                <property name="Position">1</property>
-                <property name="AutoSize">True</property>
-                <property name="Expand">False</property>
-                <property name="Fill">False</property>
-              </packing>
+              <placeholder />
             </child>
             <child>
               <placeholder />
