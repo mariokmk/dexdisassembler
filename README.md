@@ -20,5 +20,5 @@ dexdisassembler uses the dex.net library which is configured as a git submodule.
 License
 -------
 
-Dex.NET is provided under the [Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0)
+dexdisassembler is provided under the [Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0)
 
